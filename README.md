@@ -7,6 +7,7 @@ A collection of useful Go utilities for web development.
 - File upload handling
 - Random string generation
 - More utilities coming soon...
+- Create a directory, including all parent directories if they don't exist
 
 ## Installation
 
@@ -19,7 +20,7 @@ import "github.com/JackovAlltrades/toolbox"
 
 // Create a new toolbox
 t := toolbox.Tools{
-    MaxFileSize: 1024 * 1024 * 1024, // 1GB
+    MaxFileSize: 2048 * 2048 * 2048, // 2GB
     AllowedFileTypes: []string{"image/jpeg", "image/png", "image/gif"},
 }
 
@@ -31,6 +32,6 @@ files, err := t.UploadFiles(request, "./uploads")
 
 // Upload a single file
 file, err := t.UploadOneFile(request, "./uploads")
-
+```
 ## License
 This project is licensed under the MIT License - see the LICENSE.MD file for details.
