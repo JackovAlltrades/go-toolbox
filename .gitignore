@@ -1,0 +1,76 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Go specific
+*.test
+*.out
+/vendor/
+/Godeps/
+
+# Dependency directories
+node_modules/
+jspm_packages/
+
+# Build outputs
+/build/
+/dist/
+/out/
+
+# Cache directories
+.npm/
+.eslintcache
+.cache/
+.parcel-cache/
+
+# TypeScript specific
+*.tsbuildinfo
+next-env.d.ts
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
+
+# IDE/Editor specific
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.sublime-workspace
+*.swp
+*.swo
+.DS_Store
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+
+# OS specific
+Thumbs.db
+Desktop.ini
+.DS_Store
+.directory
+*~
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Unzipped directories
+unzip/
