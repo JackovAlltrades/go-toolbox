@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/JackovAlltrades/toolbox"
+	"github.com/JackovAlltrades/go-toolbox"
 )
 
 func main() {
