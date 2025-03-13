@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -20,12 +21,37 @@ type Tools struct {
 	AllowedFileTypes []string
 }
 
-// RandomString returns a random string of characters length of n, using randomStringSource
-// as source of string
+// RandomString returns a random string of characters of length n, using randomStringSource
+// as source of string. Returns an empty string if n <= 0.
 func (t *Tools) RandomString(n int) string {
+	// Handle invalid input
+	if n <= 0 {
+		return ""
+	}
+	
 	s, r := make([]rune, n), []rune(randomStringSource)
+	
+	// Check if randomStringSource is empty
+	if len(r) == 0 {
+		return ""
+	}
+	
 	for i := range s {
-		p, _ := rand.Prime(rand.Reader, len(r))
+		// Handle potential errors from rand.Prime
+		p, err := rand.Prime(rand.Reader, len(r))
+		if err != nil {
+			// Fallback to a simpler random method if Prime fails
+			b := make([]byte, 1)
+			_, err = rand.Read(b)
+			if err != nil {
+				// If all random methods fail, use a deterministic approach
+				s[i] = r[i%len(r)]
+				continue
+			}
+			s[i] = r[int(b[0])%len(r)]
+			continue
+		}
+		
 		x, y := p.Uint64(), uint64(len(r))
 		s[i] = r[x%y]
 	}
@@ -164,4 +190,50 @@ func (t *Tools) CreateDirIfNotExist(path string) error {
 		}
 	}
 	return nil
+}
+
+// Slugify converts a string to a URL-friendly slug
+// It handles special characters, multiple spaces, and ensures proper formatting
+func (t *Tools) Slugify(s string) (string, error) {
+    // Check for empty string
+    if s == "" {
+        return "", errors.New("empty string not permitted")
+    }
+    
+    // Convert to lowercase and trim spaces
+    s = strings.TrimSpace(strings.ToLower(s))
+    
+    // Handle non-ASCII characters (optional transliteration)
+    // This is a simple replacement - consider using a proper transliteration library for production
+    replacer := strings.NewReplacer(
+        "æ", "ae", "ø", "o", "å", "a", "ü", "u", "ö", "o", "ä", "a",
+        "ñ", "n", "é", "e", "è", "e", "ê", "e", "ë", "e", "á", "a",
+        "à", "a", "â", "a", "ã", "a", "ç", "c", "í", "i", "ì", "i",
+        "î", "i", "ï", "i", "ó", "o", "ò", "o", "ô", "o", "õ", "o",
+        "ú", "u", "ù", "u", "û", "u", "ý", "y", "ÿ", "y",
+    )
+    s = replacer.Replace(s)
+    
+    // Replace any non-alphanumeric characters with hyphens
+    var re = regexp.MustCompile(`[^a-z0-9]+`)
+    slug := strings.Trim(re.ReplaceAllString(s, "-"), "-")
+    
+    // Check if slug is empty after processing
+    if len(slug) == 0 {
+        return "", errors.New("after removing characters, slug is zero length")
+    }
+    
+    // Avoid multiple consecutive hyphens
+    multiHyphen := regexp.MustCompile(`-+`)
+    slug = multiHyphen.ReplaceAllString(slug, "-")
+    
+    // Limit slug length (optional, adjust as needed)
+    maxLength := 100
+    if len(slug) > maxLength {
+        slug = slug[:maxLength]
+        // Ensure we don't end with a hyphen if we truncated
+        slug = strings.TrimSuffix(slug, "-")
+    }
+    
+    return slug, nil
 }

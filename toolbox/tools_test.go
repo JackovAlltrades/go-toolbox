@@ -15,9 +15,56 @@ import (
 func TestTools_RandomString(t *testing.T) {
 	var testTools Tools
 
-	s := testTools.RandomString(10)
-	if len(s) != 10 {
-		t.Error("wrong length random string returned")
+	// Test cases
+	testCases := []struct {
+		name     string
+		length   int
+		expected int
+		isEmpty  bool
+	}{
+		{"standard case", 10, 10, false},
+		{"zero length", 0, 0, true},
+		{"negative length", -5, 0, true},
+		{"large length", 100, 100, false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			s := testTools.RandomString(tc.length)
+
+			// Check if result matches expected emptiness
+			if tc.isEmpty && s != "" {
+				t.Errorf("expected empty string for length %d, got %s", tc.length, s)
+			}
+
+			// Check length for non-empty cases
+			if !tc.isEmpty && len(s) != tc.expected {
+				t.Errorf("wrong length random string returned: got %d, expected %d", len(s), tc.expected)
+			}
+
+			// For positive lengths, verify characters are from the source
+			if tc.length > 0 && s != "" {
+				sourceRunes := []rune(randomStringSource)
+				for _, r := range s {
+					found := false
+					for _, sr := range sourceRunes {
+						if r == sr {
+							found = true
+							break
+						}
+					}
+					if !found {
+						t.Errorf("character %c not found in random string source", r)
+					}
+				}
+			}
+		})
+	}
+
+	// Test randomness (basic check)
+	// Generate multiple strings and ensure they're different
+	if testTools.RandomString(10) == testTools.RandomString(10) {
+		t.Error("random strings should be different on subsequent calls")
 	}
 }
 
@@ -173,4 +220,60 @@ func TestTools_CreateDirIfNotExist(t *testing.T) {
 	}
 
 	_ = os.Remove("./testdata/myDir")
+}
+
+func TestTools_Slugify(t *testing.T) {
+	var testTool Tools
+
+	// Test cases for standard inputs
+	slugTests := []struct {
+		name          string
+		input         string
+		expected      string
+		errorExpected bool
+	}{
+		{name: "simple text", input: "hello world", expected: "hello-world", errorExpected: false},
+		{name: "with spaces", input: "  hello  world  ", expected: "hello-world", errorExpected: false},
+		{name: "with special chars", input: "hello! @world#", expected: "hello-world", errorExpected: false},
+		{name: "with multiple hyphens", input: "hello---world", expected: "hello-world", errorExpected: false},
+		{name: "with accented chars", input: "héllö wørld", expected: "hello-world", errorExpected: false},
+		{name: "with numbers", input: "hello 123 world", expected: "hello-123-world", errorExpected: false},
+		{name: "uppercase", input: "HELLO WORLD", expected: "hello-world", errorExpected: false},
+		{name: "very long string", input: "This is a very long string that should be truncated because it exceeds the maximum length that we have set in our Slugify function which is 100 characters as defined in the implementation and we need to test it", expected: "this-is-a-very-long-string-that-should-be-truncated-because-it-exceeds-the-maximum-length-that-we-ha", errorExpected: false},
+	}
+
+	// Test edge cases
+	edgeCases := []struct {
+		name          string
+		input         string
+		errorExpected bool
+	}{
+		{name: "empty string", input: "", errorExpected: true},
+		{name: "only special chars", input: "!@#$%^&*()", errorExpected: true},
+		{name: "only spaces", input: "   ", errorExpected: true},
+	}
+
+	// Run standard test cases
+	for _, e := range slugTests {
+		slug, err := testTool.Slugify(e.input)
+		if err != nil && !e.errorExpected {
+			t.Errorf("%s: got an error when none expected: %s", e.name, err.Error())
+		}
+
+		if err == nil && e.errorExpected {
+			t.Errorf("%s: did not get an error when one expected", e.name)
+		}
+
+		if slug != e.expected && !e.errorExpected {
+			t.Errorf("%s: wrong slug returned. Expected %s but got %s", e.name, e.expected, slug)
+		}
+	}
+
+	// Run edge cases
+	for _, e := range edgeCases {
+		_, err := testTool.Slugify(e.input)
+		if err == nil && e.errorExpected {
+			t.Errorf("%s: did not get an error when one expected", e.name)
+		}
+	}
 }
