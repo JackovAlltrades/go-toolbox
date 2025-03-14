@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -16,77 +17,29 @@ const randomStringSource = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ
 
 // Tools is type used to instantiate the module. Variables of type allowed access
 // to all methods with reciever *Tools
+// Add MaxBatchSize to the Tools struct
 type Tools struct {
-	MaxFileSize      int
-	AllowedFileTypes []string
-}
-
-// RandomString returns a random string of characters of length n, using randomStringSource
-// as source of string. Returns an empty string if n <= 0.
-func (t *Tools) RandomString(n int) string {
-	// Handle invalid input
-	if n <= 0 {
-		return ""
-	}
+	MaxFileSize           int
+	AllowedFileTypes      []string
+	AllowUnknownTypes     bool
+	MaxUploadCount        int
+	UploadPath            string
+	TempFilePath          string
+	TypeSpecificSizeLimits map[string]int
+	DefaultSizeLimits      map[string]int
+	ChunkSize              int
+	ValidationCallback     func(file *UploadedFile) error
+	MaxBatchSize          int64 // Maximum total size of all files in a batch
 	
-	s, r := make([]rune, n), []rune(randomStringSource)
+	// For testing purposes - allows mocking the file type detection
+	detectFileType func(file multipart.File) (string, error)
+}
+
+// Modify the UploadFiles method to check batch size
+func (t *Tools) UploadFiles(r *http.Request, uploadDir string, rename bool) ([]*UploadedFile, error) {
+	// Initialize defaults if not set
+	t.InitDefaults()
 	
-	// Check if randomStringSource is empty
-	if len(r) == 0 {
-		return ""
-	}
-	
-	for i := range s {
-		// Handle potential errors from rand.Prime
-		p, err := rand.Prime(rand.Reader, len(r))
-		if err != nil {
-			// Fallback to a simpler random method if Prime fails
-			b := make([]byte, 1)
-			_, err = rand.Read(b)
-			if err != nil {
-				// If all random methods fail, use a deterministic approach
-				s[i] = r[i%len(r)]
-				continue
-			}
-			s[i] = r[int(b[0])%len(r)]
-			continue
-		}
-		
-		x, y := p.Uint64(), uint64(len(r))
-		s[i] = r[x%y]
-	}
-
-	return string(s)
-}
-
-// UploadedFile a struct used to save information on uploaded file
-type UploadedFile struct {
-	NewFileName      string
-	OriginalFileName string
-	FileSize         int64
-}
-
-// UploadOneFile a convenience method that calls UploadFiles, and expects one file
-// // to be uploaded.
-func (t *Tools) UploadOneFile(r *http.Request, uploadDir string, rename ...bool) (*UploadedFile, error) {
-	renameFile := true
-	if len(rename) > 0 {
-		renameFile = rename[0]
-	}
-
-	files, err := t.UploadFiles(r, uploadDir, renameFile)
-	if err != nil {
-		return nil, err
-	}
-
-	return files[0], nil
-}
-
-// UploadFiles uploads one or more file to a specified directory, and gives each files a random name.
-// Returns slice containing new file names, original file names,and total size of all files,
-// and anyerrors. If optional last parameter, set to true, will not rename files, will
-// use the original file names.
-func (t *Tools) UploadFiles(r *http.Request, uploadDir string, rename ...bool) ([]*UploadedFile, error) {
 	renameFile := true
 	if len(rename) > 0 {
 		renameFile = rename[0]
@@ -94,18 +47,46 @@ func (t *Tools) UploadFiles(r *http.Request, uploadDir string, rename ...bool) (
 
 	var uploadedFiles []*UploadedFile
 
-	if t.MaxFileSize == 0 {
-		t.MaxFileSize = 2048 * 2048 * 2048
+	// Use UploadPath if uploadDir is not specified
+	if uploadDir == "" && t.UploadPath != "" {
+		uploadDir = t.UploadPath
 	}
 
+	// Sanitize and validate the upload directory
+	uploadDir = filepath.Clean(uploadDir)
+	if !filepath.IsAbs(uploadDir) {
+		absPath, err := filepath.Abs(uploadDir)
+		if err != nil {
+			return nil, fmt.Errorf("invalid upload directory path: %w", err)
+		}
+		uploadDir = absPath
+	}
+
+	// Create the upload directory if it doesn't exist
 	err := t.CreateDirIfNotExist(uploadDir)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create upload directory: %w", err)
 	}
 
+	// Parse the multipart form with size limit
 	err = r.ParseMultipartForm(int64(t.MaxFileSize))
 	if err != nil {
-		return nil, errors.New("the uploaded file is too big")
+		return nil, errors.New("the uploaded file exceeds the maximum allowed size")
+	}
+
+	// Check if any files were uploaded
+	if r.MultipartForm == nil || r.MultipartForm.File == nil {
+		return nil, errors.New("no files were uploaded")
+	}
+
+	fileCount := 0
+	for _, fHeaders := range r.MultipartForm.File {
+		fileCount += len(fHeaders)
+	}
+
+	// Check if the number of files exceeds the maximum allowed
+	if t.MaxUploadCount > 0 && fileCount > t.MaxUploadCount {
+		return nil, fmt.Errorf("number of files (%d) exceeds the maximum allowed (%d)", fileCount, t.MaxUploadCount)
 	}
 
 	for _, fHeaders := range r.MultipartForm.File {
@@ -114,69 +95,180 @@ func (t *Tools) UploadFiles(r *http.Request, uploadDir string, rename ...bool) (
 				var uploadedFile UploadedFile
 				infile, err := hdr.Open()
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("failed to open uploaded file: %w", err)
 				}
 				defer infile.Close()
 
+				// Read file header for content type detection
 				buff := make([]byte, 512)
-				_, err = infile.Read(buff)
-				if err != nil {
-					return nil, err
+				n, err := infile.Read(buff)
+				if err != nil && err != io.EOF {
+					return nil, fmt.Errorf("failed to read file header: %w", err)
 				}
+				buff = buff[:n]
 
-				// check to see if the file type is permitted
-				allowed := false
+				// Detect and validate file type
 				fileType := http.DetectContentType(buff)
-
-				if len(t.AllowedFileTypes) > 0 {
+				uploadedFile.FileType = fileType
+				
+				// Check if file type is allowed
+				allowed := t.AllowUnknownTypes // Allow if AllowUnknownTypes is true
+				if !allowed && len(t.AllowedFileTypes) > 0 {
 					for _, x := range t.AllowedFileTypes {
 						if strings.EqualFold(fileType, x) {
 							allowed = true
+							break
 						}
 					}
-				} else {
-					allowed = true
+				} else if len(t.AllowedFileTypes) == 0 {
+					allowed = true // If no restrictions specified, allow all
 				}
 
 				if !allowed {
-					return nil, errors.New("the uploaded file type is not permitted")
+					return nil, fmt.Errorf("file type %s is not permitted", fileType)
+				}
+				
+				// Get type-specific size limit
+				sizeLimit := t.GetFileSizeLimit(fileType)
+				
+				// Check individual file size against type-specific limit
+				if hdr.Size > int64(sizeLimit) {
+					return nil, fmt.Errorf("file %s exceeds the maximum allowed size for type %s (%d bytes)", 
+						hdr.Filename, fileType, sizeLimit)
 				}
 
+				// Reset file pointer to beginning
 				_, err = infile.Seek(0, 0)
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("failed to reset file pointer: %w", err)
 				}
 
+				// Sanitize original filename
+				originalFilename := filepath.Base(hdr.Filename)
+				uploadedFile.OriginalFileName = originalFilename
+
+				// Generate new filename or use original
 				if renameFile {
-					uploadedFile.NewFileName = fmt.Sprintf("%s%s", t.RandomString(25), filepath.Ext(hdr.Filename))
+					ext := filepath.Ext(originalFilename)
+					uploadedFile.NewFileName = fmt.Sprintf("%s%s", t.RandomString(25), ext)
 				} else {
-					uploadedFile.NewFileName = hdr.Filename
+					// Ensure filename is safe
+					uploadedFile.NewFileName = originalFilename
 				}
 
-				uploadedFile.OriginalFileName = hdr.Filename
+				// Use TempFilePath if specified
+				tempPath := uploadDir
+				if t.TempFilePath != "" {
+					// Create temp directory if it doesn't exist
+					err = t.CreateDirIfNotExist(t.TempFilePath)
+					if err != nil {
+						return nil, fmt.Errorf("failed to create temp directory: %w", err)
+					}
+					tempPath = t.TempFilePath
+				}
 
-				var outfile *os.File
-				defer outfile.Close()
-
-				if outfile, err = os.Create(filepath.Join(uploadDir, uploadedFile.NewFileName)); err != nil {
-					return nil, err
+				// Create a temporary file first if TempFilePath is specified
+				var tempFile *os.File
+				var finalPath string
+				
+				if t.TempFilePath != "" {
+					tempFilename := fmt.Sprintf("temp_%s", uploadedFile.NewFileName)
+					tempFilePath := filepath.Join(tempPath, tempFilename)
+					tempFile, err = os.Create(tempFilePath)
+					if err != nil {
+						return nil, fmt.Errorf("failed to create temporary file: %w", err)
+					}
+					defer func() {
+						tempFile.Close()
+						// Clean up temp file after copying to final destination
+						os.Remove(tempFilePath)
+					}()
+					
+					// Copy to temp file
+					fileSize, err := io.Copy(tempFile, infile)
+					if err != nil {
+						return nil, fmt.Errorf("failed to save to temporary file: %w", err)
+					}
+					uploadedFile.FileSize = fileSize
+					
+					// Reset temp file pointer to beginning
+					_, err = tempFile.Seek(0, 0)
+					if err != nil {
+						return nil, fmt.Errorf("failed to reset temp file pointer: %w", err)
+					}
+					
+					// Create the destination file
+					finalPath = filepath.Join(uploadDir, uploadedFile.NewFileName)
+					outfile, err := os.Create(finalPath)
+					if err != nil {
+						return nil, fmt.Errorf("failed to create destination file: %w", err)
+					}
+					defer outfile.Close()
+					
+					// Copy from temp file to final destination
+					_, err = io.Copy(outfile, tempFile)
+					if err != nil {
+						// Clean up partial file on error
+						os.Remove(finalPath)
+						return nil, fmt.Errorf("failed to copy from temp to final destination: %w", err)
+					}
 				} else {
+					// Create the destination file directly
+					finalPath = filepath.Join(uploadDir, uploadedFile.NewFileName)
+					outfile, err := os.Create(finalPath)
+					if err != nil {
+						return nil, fmt.Errorf("failed to create destination file: %w", err)
+					}
+					defer outfile.Close()
+					
+					// Copy the file contents directly
 					fileSize, err := io.Copy(outfile, infile)
 					if err != nil {
-						return nil, err
+						// Clean up partial file on error
+						os.Remove(finalPath)
+						return nil, fmt.Errorf("failed to save file: %w", err)
 					}
 					uploadedFile.FileSize = fileSize
 				}
+				
+				// Run custom validation if provided
+				if t.ValidationCallback != nil {
+					if err := t.ValidationCallback(&uploadedFile); err != nil {
+						// Clean up file on validation error
+						os.Remove(finalPath)
+						return nil, fmt.Errorf("file validation failed: %w", err)
+					}
+				}
 
 				uploadedFiles = append(uploadedFiles, &uploadedFile)
-
 				return uploadedFiles, nil
 			}(uploadedFiles)
+			
 			if err != nil {
+				// Return partial results and the error
 				return uploadedFiles, err
 			}
 		}
 	}
+	
+	// Calculate total batch size
+	var totalBatchSize int64
+	for _, fileHeaders := range r.MultipartForm.File {
+		for _, header := range fileHeaders {
+			totalBatchSize += header.Size
+		}
+	}
+	
+	// Check if total batch size exceeds limit
+	if t.MaxBatchSize > 0 && totalBatchSize > t.MaxBatchSize {
+		return nil, fmt.Errorf("total batch size %d exceeds the maximum allowed size %d", 
+			totalBatchSize, t.MaxBatchSize)
+	}
+	
+	if len(uploadedFiles) == 0 {
+		return nil, errors.New("no files were processed")
+	}
+	
 	return uploadedFiles, nil
 }
 
