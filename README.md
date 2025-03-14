@@ -32,6 +32,10 @@ files, err := t.UploadFiles(request, "./uploads")
 
 // Upload a single file
 file, err := t.UploadOneFile(request, "./uploads")
+
+// Create a URL-friendly slug
+slug, err := t.Slugify("Hello World!")
+// Returns: "hello-world"
 ```
 ## License
 This project is licensed under the MIT License - see the LICENSE.MD file for details.

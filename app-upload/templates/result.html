@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Upload Results</title>
+	<style>
+		body {
+			font-family: Arial, sans-serif;
+			max-width: 800px;
+			margin: 0 auto;
+			padding: 20px;
+		}
+		.result {
+			background-color: #f8f9fa;
+			padding: 15px;
+			margin-top: 10px;
+			border-left: 4px solid #28a745;
+		}
+		.back-link {
+			margin-top: 20px;
+		}
+		.summary {
+			background-color: #e9f7ef;
+			padding: 15px;
+			margin-bottom: 20px;
+			border-radius: 5px;
+		}
+	</style>
+</head>
+<body>
+	<h1>Uploaded Files</h1>
+	
+	<div class="summary">
+		<p><strong>Files uploaded:</strong> {{len .Files}}</p>
+		<p><strong>Total size:</strong> {{if .TotalSize}}{{formatFileSize .TotalSize}}{{else}}0 bytes{{end}}</p>
+	</div>
+	
+	{{range .Files}}
+	<div class="result">
+		<p><strong>Original:</strong> {{.OriginalFileName}}</p>
+		<p><strong>Saved as:</strong> {{.NewFileName}}</p>
+		<p><strong>Size:</strong> {{formatFileSize .FileSize}}</p>
+		<p><strong>Type:</strong> {{.FileType}}</p>
+	</div>
+	{{end}}
+	<div class="back-link">
+		<a href="/">Back to Upload Form</a>
+	</div>
+</body>
+</html>

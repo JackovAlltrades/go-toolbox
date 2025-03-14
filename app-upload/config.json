@@ -1,0 +1,9 @@
+{
+  "upload_dir": "./uploads",
+  "temp_dir": "./temp",
+  "max_file_size": 104857600,
+  "max_batch_size": 1073741824,
+  "server_port": "8090",
+  "template_path": "./templates",
+  "max_upload_count": 5
+}

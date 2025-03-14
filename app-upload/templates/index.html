@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>File Upload Example</title>
+	<style>
+		body {
+			font-family: Arial, sans-serif;
+			max-width: 800px;
+			margin: 0 auto;
+			padding: 20px;
+		}
+		.upload-form {
+			border: 1px solid #ddd;
+			padding: 20px;
+			border-radius: 5px;
+		}
+		.info {
+			background-color: #f8f9fa;
+			padding: 15px;
+			margin-top: 20px;
+			border-left: 4px solid #17a2b8;
+		}
+		.limits-table {
+			width: 100%;
+			border-collapse: collapse;
+			margin-top: 10px;
+		}
+		.limits-table th, .limits-table td {
+			border: 1px solid #ddd;
+			padding: 8px;
+			text-align: left;
+		}
+		.limits-table th {
+			background-color: #f2f2f2;
+		}
+		.progress-container {
+			width: 100%;
+			background-color: #f1f1f1;
+			margin-top: 10px;
+			display: none;
+		}
+		.progress-bar {
+			width: 0%;
+			height: 20px;
+			background-color: #4CAF50;
+			text-align: center;
+			line-height: 20px;
+			color: white;
+		}
+	</style>
+</head>
+<body>
+	<h1>File Upload Example</h1>
+	<div class="upload-form">
+		<form id="uploadForm" action="/upload" method="post" enctype="multipart/form-data">
+			<h3>Select files to upload:</h3>
+			<input type="file" name="file" id="fileInput" multiple><br>
+			<small>Maximum {{.MaxUploadCount}} files, individual file limit {{.MaxFileSize}}, total batch size limit {{.MaxBatchSize}}</small><br><br>
+			<input type="submit" value="Upload" id="submitBtn">
+		</form>
+		<div class="progress-container" id="progressContainer">
+			<div class="progress-bar" id="progressBar">0%</div>
+		</div>
+	</div>
+	<div class="info">
+		<h3>Allowed File Types:</h3>
+		<ul>
+			<li>Images: JPEG, PNG, GIF, WebP</li>
+			<li>Documents: PDF, TXT, DOC, DOCX</li>
+			<li>Archives: ZIP, RAR</li>
+		</ul>
+		
+		<h3>File Size Limits:</h3>
+		<table class="limits-table">
+			<tr>
+				<th>File Type</th>
+				<th>Size Limit</th>
+			</tr>
+			<tr>
+				<td>Documents (PDF, DOCX, etc.)</td>
+				<td>{{.TypeLimits.document}}</td>
+			</tr>
+			<tr>
+				<td>Images (JPEG, PNG, etc.)</td>
+				<td>{{.TypeLimits.image}}</td>
+			</tr>
+			<tr>
+				<td>Text Files</td>
+				<td>{{.TypeLimits.text}}</td>
+			</tr>
+			<tr>
+				<td>Audio Files</td>
+				<td>{{.TypeLimits.audio}}</td>
+			</tr>
+			<tr>
+				<td>Video Files</td>
+				<td>{{.TypeLimits.video}}</td>
+			</tr>
+			<tr>
+				<td>Archive Files</td>
+				<td>{{.TypeLimits.archive}}</td>
+			</tr>
+		</table>
+		
+		<p>Total batch size limit: {{.MaxBatchSize}}</p>
+	</div>
+
+	<script>
+		// Add upload progress bar functionality
+		document.getElementById('uploadForm').onsubmit = function(e) {
+			e.preventDefault();
+			
+			var fileInput = document.getElementById('fileInput');
+			var files = fileInput.files;
+			
+			// Check if files were selected
+			if (files.length === 0) {
+				alert('Please select at least one file');
+				return false;
+			}
+			
+			// Check file count
+			if (files.length > {{.MaxUploadCount}}) {
+				alert('Maximum {{.MaxUploadCount}} files allowed');
+				return false;
+			}
+			
+			// Calculate total size
+			var totalSize = 0;
+			for (var i = 0; i < files.length; i++) {
+				totalSize += files[i].size;
+			}
+			
+			// Show progress bar
+			document.getElementById('progressContainer').style.display = 'block';
+			document.getElementById('submitBtn').disabled = true;
+			
+			var formData = new FormData(this);
+			var xhr = new XMLHttpRequest();
+			
+			xhr.open('POST', '/upload', true);
+			
+			xhr.upload.onprogress = function(e) {
+				if (e.lengthComputable) {
+					var percent = Math.round((e.loaded / e.total) * 100);
+					document.getElementById('progressBar').style.width = percent + '%';
+					document.getElementById('progressBar').textContent = percent + '%';
+				}
+			};
+			
+			xhr.onload = function() {
+				if (xhr.status === 200) {
+					document.open();
+					document.write(xhr.responseText);
+					document.close();
+				} else {
+					alert('Upload failed: ' + xhr.responseText);
+					document.getElementById('progressContainer').style.display = 'none';
+					document.getElementById('submitBtn').disabled = false;
+				}
+			};
+			
+			xhr.onerror = function() {
+				alert('Upload failed. Please try again.');
+				document.getElementById('progressContainer').style.display = 'none';
+				document.getElementById('submitBtn').disabled = false;
+			};
+			
+			xhr.send(formData);
+			return false;
+		};
+	</script>
+</body>
+</html>
