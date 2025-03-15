@@ -67,7 +67,31 @@ func loadConfigFromFile(filePath string) (*Config, error) {
 	}
 	
 	if err := json.Unmarshal(data, &config); err != nil {
-		return nil, err
+		// Return nil instead of a partially initialized config
+		return nil, fmt.Errorf("error parsing config file: %w", err)
+	}
+	
+	// Validate the loaded configuration
+	if config.UploadDir == "" {
+		config.UploadDir = defaultUploadDir
+	}
+	if config.TempDir == "" {
+		config.TempDir = defaultTempDir
+	}
+	if config.MaxFileSize <= 0 {
+		config.MaxFileSize = defaultMaxFileSize
+	}
+	if config.MaxBatchSize <= 0 {
+		config.MaxBatchSize = defaultMaxBatchSize
+	}
+	if config.ServerPort == "" {
+		config.ServerPort = defaultServerPort
+	}
+	if config.TemplatePath == "" {
+		config.TemplatePath = defaultTemplatePath
+	}
+	if config.MaxUploadCount <= 0 {
+		config.MaxUploadCount = defaultMaxUploadCount
 	}
 	
 	return &Config{
@@ -173,20 +197,50 @@ func (app *AppConfig) UploadHandler(w http.ResponseWriter, r *http.Request) {
 	totalBatchSize := int64(0)
 	fileCount := 0
 
+	// Define type-specific size limits
+	typeSpecificLimits := map[string]int64{
+		"image/jpeg":                                                        10 * 1024 * 1024, // 10MB for JPEG
+		"image/png":                                                         10 * 1024 * 1024, // 10MB for PNG
+		"image/gif":                                                         10 * 1024 * 1024, // 10MB for GIF
+		"image/webp":                                                        10 * 1024 * 1024, // 10MB for WebP
+		"application/pdf":                                                   20 * 1024 * 1024, // 20MB for PDF
+		"text/plain":                                                        5 * 1024 * 1024,  // 5MB for text
+		"application/msword":                                                20 * 1024 * 1024, // 20MB for DOC
+		"application/vnd.openxmlformats-officedocument.wordprocessingml.document": 20 * 1024 * 1024, // 20MB for DOCX
+		"application/zip":                                                   50 * 1024 * 1024, // 50MB for ZIP
+		"application/x-rar-compressed":                                      50 * 1024 * 1024, // 50MB for RAR
+	}
+
 	for _, fHeaders := range r.MultipartForm.File {
 		fileCount += len(fHeaders)
 		
 		for _, header := range fHeaders {
 			totalBatchSize += header.Size
 			
-			// Check individual file size
-			if header.Size > int64(app.Config.MaxFileSize) {
-				http.Error(w, fmt.Sprintf(
-					"File '%s' exceeds the maximum allowed size (%d MB)", 
-					header.Filename, 
-					app.Config.MaxFileSize/(1024*1024),
-				), http.StatusBadRequest)
-				return
+			// Get content type
+			contentType := header.Header.Get("Content-Type")
+			
+			// Check type-specific size limit
+			if sizeLimit, exists := typeSpecificLimits[contentType]; exists {
+				if header.Size > sizeLimit {
+					http.Error(w, fmt.Sprintf(
+						"File '%s' exceeds the maximum allowed size for %s (%s)", 
+						header.Filename, 
+						contentType,
+						formatSize(sizeLimit),
+					), http.StatusBadRequest)
+					return
+				}
+			} else {
+				// Fall back to general size limit for unknown types
+				if header.Size > int64(app.Config.MaxFileSize) {
+					http.Error(w, fmt.Sprintf(
+						"File '%s' exceeds the maximum allowed size (%s)", 
+						header.Filename, 
+						formatSize(int64(app.Config.MaxFileSize)),
+					), http.StatusBadRequest)
+					return
+				}
 			}
 		}
 	}
@@ -227,26 +281,10 @@ func (app *AppConfig) UploadHandler(w http.ResponseWriter, r *http.Request) {
 		TotalSize: totalBatchSize,
 	}
 
+	// In UploadHandler, update the template function to use the shared formatSize
 	// Create template with formatFileSize function
 	tmpl := template.New("result.html").Funcs(template.FuncMap{
-		"formatFileSize": func(size int64) string {
-			const (
-				KB = 1024
-				MB = 1024 * KB
-				GB = 1024 * MB
-			)
-
-			switch {
-			case size >= GB:
-				return fmt.Sprintf("%.2f GB", float64(size)/float64(GB))
-			case size >= MB:
-				return fmt.Sprintf("%.2f MB", float64(size)/float64(MB))
-			case size >= KB:
-				return fmt.Sprintf("%.2f KB", float64(size)/float64(KB))
-			default:
-				return fmt.Sprintf("%d bytes", size)
-			}
-		},
+	    "formatFileSize": formatSize,
 	})
 	
 	tmpl, err = tmpl.ParseFiles(filepath.Join(templatePath, "result.html"))
@@ -263,7 +301,7 @@ func (app *AppConfig) UploadHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // Helper function to format file sizes in a human-readable way
-func formatSize(bytes int) string {
+func formatSize(bytes int64) string {
 	const (
 		KB = 1024
 		MB = 1024 * KB
@@ -278,7 +316,7 @@ func formatSize(bytes int) string {
 	case bytes >= KB:
 		return fmt.Sprintf("%.2f KB", float64(bytes)/float64(KB))
 	default:
-		return fmt.Sprintf("%d B", bytes)
+		return fmt.Sprintf("%d bytes", bytes)
 	}
 }
 
@@ -297,8 +335,8 @@ func (app *AppConfig) HomeHandler(w http.ResponseWriter, r *http.Request) {
 		TypeLimits     map[string]string
 	}{
 		MaxUploadCount: app.Config.MaxUploadCount,
-		MaxFileSize:    formatSize(app.Config.MaxFileSize),
-		MaxBatchSize:   formatSize(int(app.Config.MaxBatchSize)),
+		MaxFileSize:    formatSize(int64(app.Config.MaxFileSize)),
+		MaxBatchSize:   formatSize(app.Config.MaxBatchSize),
 		TypeLimits: map[string]string{
 			"document": formatSize(20 * 1024 * 1024),  // 20MB
 			"image":    formatSize(10 * 1024 * 1024),  // 10MB
@@ -641,8 +679,8 @@ func main() {
 	fmt.Printf("- Upload directory: %s\n", absUploadDir)
 	fmt.Printf("- Temporary directory: %s\n", absTempDir)
 	fmt.Printf("- Maximum upload count: %d files\n", config.MaxUploadCount)
-	fmt.Printf("- Maximum file size: %s\n", formatSize(config.MaxFileSize))
-	fmt.Printf("- Maximum batch size: %s\n", formatSize(int(config.MaxBatchSize)))
+	fmt.Printf("- Maximum file size: %s\n", formatSize(int64(config.MaxFileSize)))
+	fmt.Printf("- Maximum batch size: %s\n", formatSize(config.MaxBatchSize))
 	
 	if err := http.ListenAndServe(":"+config.ServerPort, handler); err != nil {
 		log.Fatal("Error starting server:", err)
