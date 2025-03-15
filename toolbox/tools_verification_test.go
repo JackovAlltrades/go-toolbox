@@ -63,10 +63,31 @@ func TestTools_ContentVerification(t *testing.T) {
 			isValid, err := tools.VerifyFileContent(tempFile, tc.claimedType)
 			
 			// Check error expectations
+			if err != nil && !tc.errorExpected {
+				t.Errorf("got unexpected error: %s", err.Error())
+			}
+
+			if err == nil && tc.errorExpected {
+				t.Errorf("expected error but got none")
+			}
+
+			// Check for specific error type if applicable
+			if err != nil && tc.errorExpected && tc.expectedError != nil {
+				var errResp *ErrorResponse
+				if errors.As(err, &errResp) {
+					if !errors.Is(errResp.Err, tc.expectedError) {
+						t.Errorf("expected error %v, got: %v", tc.expectedError, errResp.Err)
+					}
+				} else {
+					t.Errorf("expected ErrorResponse type, got: %T", err)
+				}
+			}
+
+			// Check validity result
 			if !isValid && !tc.errorExpected {
 				t.Errorf("expected valid content but got invalid")
 			}
-			
+
 			if isValid && tc.errorExpected {
 				t.Errorf("expected invalid content but got valid")
 			}

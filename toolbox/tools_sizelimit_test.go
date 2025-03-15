@@ -162,6 +162,11 @@ func TestTools_TypeSpecificSizeLimits(t *testing.T) {
 	
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			// Create a unique test directory for this test case
+			testDir := fmt.Sprintf("./testdata/uploads/%s", tc.name)
+			setupTestDir(t, testDir)
+			defer cleanupTestDir(t, testDir)
+			
 			// Create a test request with a file
 			pr, pw := io.Pipe()
 			writer := multipart.NewWriter(pw)
@@ -202,7 +207,7 @@ func TestTools_TypeSpecificSizeLimits(t *testing.T) {
 			}
 			
 			// Attempt to upload the file
-			_, err := tools.UploadFiles(request, "./testdata/uploads/", true)
+			files, err := tools.UploadFiles(request, testDir, true)
 			
 			// Check error expectations
 			if err != nil && !tc.errorExpected {
@@ -222,6 +227,13 @@ func TestTools_TypeSpecificSizeLimits(t *testing.T) {
 					}
 				} else {
 					t.Errorf("expected ErrorResponse type, got: %T", err)
+				}
+			}
+			
+			// Add cleanup for any created files
+			if err == nil && files != nil {
+				for _, f := range files {
+					os.Remove(fmt.Sprintf("%s/%s", testDir, f.NewFileName))
 				}
 			}
 		})

@@ -33,37 +33,38 @@ func TestTools_ReadJSON(t *testing.T) {
 	var testTool Tools
 
 	for _, e := range jsonTests {
-		// set the max file size
-		testTool.MaxJSONSize = e.maxSize
+		t.Run(e.name, func(t *testing.T) {
+			// set the max file size
+			testTool.MaxJSONSize = e.maxSize
 
-		// allow/disallow unknown fields
-		testTool.AllowUnknownFields = e.allowUnknown
+			// allow/disallow unknown fields
+			testTool.AllowUnknownFields = e.allowUnknown
 
-		// declare a variable to read the decoded json into
-		var decodedJSON struct {
-			Foo string `json:"foo"`
-		}
+			// declare a variable to read the decoded json into
+			var decodedJSON struct {
+				Foo string `json:"foo"`
+			}
 
-		// create a request with the body
-		req, err := http.NewRequest("POST", "/", bytes.NewReader([]byte(e.json)))
-		if err != nil {
-			t.Log("Error:", err)
-		}
+			// create a request with the body
+			req, err := http.NewRequest("POST", "/", bytes.NewReader([]byte(e.json)))
+			if err != nil {
+				t.Fatalf("Error creating request: %v", err)
+			}
+			defer req.Body.Close()
 
-		// create a recorder
-		rr := httptest.NewRecorder()
+			// create a recorder
+			rr := httptest.NewRecorder()
 
-		err = testTool.ReadJSON(rr, req, &decodedJSON)
+			err = testTool.ReadJSON(rr, req, &decodedJSON)
 
-		if e.errorExpected && err == nil {
-			t.Errorf("%s: error expected, but none received", e.name)
-		}
+			if e.errorExpected && err == nil {
+				t.Errorf("error expected, but none received")
+			}
 
-		if !e.errorExpected && err != nil {
-			t.Errorf("%s: error not expected, but one received: %s", e.name, err.Error())
-		}
-
-		req.Body.Close()
+			if !e.errorExpected && err != nil {
+				t.Errorf("error not expected, but one received: %s", err.Error())
+			}
+		})
 	}
 }
 

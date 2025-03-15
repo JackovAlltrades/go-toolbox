@@ -6,12 +6,22 @@ import (
 	"mime/multipart"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
 
 // TestTools_FileTypeValidation tests the file type validation functionality
 func TestTools_FileTypeValidation(t *testing.T) {
+	// Create test directory
+	testDir := "./testdata/uploads"
+	err := os.MkdirAll(testDir, 0755)
+	if err != nil {
+		t.Fatalf("Failed to create test directory: %v", err)
+	}
+	// Clean up after test
+	defer os.RemoveAll(testDir)
+
 	tests := []struct {
 		name              string
 		fileType          string
@@ -20,6 +30,7 @@ func TestTools_FileTypeValidation(t *testing.T) {
 		shouldBeAllowed   bool
 		expectedError     error
 	}{
+		// Test cases remain the same
 		{
 			name:              "allowed type",
 			fileType:          "image/jpeg",
@@ -78,7 +89,7 @@ func TestTools_FileTypeValidation(t *testing.T) {
 			}
 			
 			// Try to upload the file
-			_, err := tools.UploadFiles(request, "./testdata/uploads/", true)
+			_, err := tools.UploadFiles(request, testDir, true)
 			
 			// Check if the result matches expectations
 			if tc.shouldBeAllowed && err != nil && strings.Contains(err.Error(), "not permitted") {

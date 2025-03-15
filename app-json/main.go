@@ -4,7 +4,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/tsawler/toolkit/v2"
+	"github.com/JackovAlltrades/go-toolbox"
 )
 
 type RequestPayload struct {
@@ -39,7 +39,7 @@ func main() {
 
 func receivePost(w http.ResponseWriter, r *http.Request) {
 	var requestPayload RequestPayload
-	var t toolkit.Tools
+	var t toolbox.Tools  // Changed from toolkit.Tools to toolbox.Tools
 
 	err := t.ReadJSON(w, r, &requestPayload)
 	if err != nil {
@@ -59,7 +59,7 @@ func receivePost(w http.ResponseWriter, r *http.Request) {
 
 func remoteService(w http.ResponseWriter, r *http.Request) {
 	var requestPayload RequestPayload
-	var t toolkit.Tools
+	var t toolbox.Tools  // Changed from toolkit.Tools to toolbox.Tools
 
 	err := t.ReadJSON(w, r, &requestPayload)
 	if err != nil {
@@ -90,6 +90,6 @@ func simulatedService(w http.ResponseWriter, r *http.Request) {
 		Message: "ok",
 	}
 
-	var t toolkit.Tools
+	var t toolbox.Tools  // Changed from toolkit.Tools to toolbox.Tools
 	_ = t.WriteJSON(w, http.StatusOK, payload)
 }

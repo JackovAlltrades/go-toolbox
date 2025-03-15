@@ -56,20 +56,26 @@ func TestTools_MaxUploadCount(t *testing.T) {
 			pr, pw := io.Pipe()
 			writer := multipart.NewWriter(pw)
 			
+			// In the goroutine that creates form files, modify the error handling:
 			go func() {
-				defer writer.Close()
-				
-				// Create multiple files
-				for i := 0; i < tc.fileCount; i++ {
-					part, err := writer.CreateFormFile("file", fmt.Sprintf("testfile%d.txt", i))
-					if err != nil {
-						t.Error(err)
-						return
-					}
-					
-					// Write some dummy data
-					part.Write([]byte(fmt.Sprintf("test content for file %d", i)))
-				}
+			    defer writer.Close()
+			    
+			    // Create multiple files
+			    for i := 0; i < tc.fileCount; i++ {
+			        part, err := writer.CreateFormFile("file", fmt.Sprintf("testfile%d.txt", i))
+			        if err != nil {
+			            // Use a channel to communicate the error back to the test
+			            t.Errorf("Error creating form file: %v", err)
+			            return
+			        }
+			        
+			        // Write some dummy data
+			        _, err = part.Write([]byte(fmt.Sprintf("test content for file %d", i)))
+			        if err != nil {
+			            t.Errorf("Error writing to form file: %v", err)
+			            return
+			        }
+			    }
 			}()
 			
 			// Create the request
