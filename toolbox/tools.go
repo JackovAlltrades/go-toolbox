@@ -742,8 +742,16 @@ func (t *Tools) CancelChunkedUpload(uploadID string) error {
 // in the browser window by setting content disposition. It also allows specification of the
 // display name
 func (t *Tools) DownloadStaticFile(w http.ResponseWriter, r *http.Request, p, file, displayName string) {
-	fp := path.Join(p, file)
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", displayName))
-
-	http.ServeFile(w, r, fp)
+    fp := path.Join(p, file)
+    fmt.Printf("DownloadStaticFile: Full path to file: %s\n", fp)
+    
+    // Check if file exists
+    if _, err := os.Stat(fp); os.IsNotExist(err) {
+        fmt.Printf("DownloadStaticFile: File not found: %s\n", fp)
+        http.Error(w, "File not found", http.StatusNotFound)
+        return
+    }
+    
+    w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", displayName))
+    http.ServeFile(w, r, fp)
 }
