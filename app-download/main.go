@@ -3,43 +3,29 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"os"
-	"path/filepath"
 
 	"github.com/JackovAlltrades/go-toolbox"
 )
 
 func main() {
-	// Serve static files
-	http.Handle("/", http.FileServer(http.Dir(".")))
+	// get routes
+	mux := routes()
 
-	// Handle download requests
-	http.HandleFunc("/download", downloadHandler)
-
-	// Handle toolkit download
-	http.HandleFunc("/download-file", downloadFile)
-
-	// Start the server
+	// start a server
 	fmt.Println("Server started at http://localhost:8090")
-	http.ListenAndServe(":8090", nil)
+	err := http.ListenAndServe(":8090", mux)
+	if err != nil {
+		fmt.Println("Error starting server:", err)
+	}
 }
 
-func downloadHandler(w http.ResponseWriter, r *http.Request) {
-	// Path to the file you want to download
-	filePath := filepath.Join(".", "files", "sample.pdf")
+func routes() http.Handler {
+	mux := http.NewServeMux()
 
-	// Check if file exists
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		http.Error(w, "File not found", http.StatusNotFound)
-		return
-	}
+	mux.Handle("/", http.StripPrefix("/", http.FileServer(http.Dir("."))))
+	mux.HandleFunc("/download", downloadFile)
 
-	// Set headers for file download
-	w.Header().Set("Content-Disposition", "attachment; filename=sample.pdf")
-	w.Header().Set("Content-Type", "application/pdf")
-
-	// Serve the file
-	http.ServeFile(w, r, filePath)
+	return mux
 }
 
 func downloadFile(w http.ResponseWriter, r *http.Request) {
