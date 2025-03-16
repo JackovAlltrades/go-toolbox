@@ -1,11 +1,6 @@
 go 1.24.1
 
 use (
-	./app
-	./app-dir
-	./app-download
-	./app-json
-	./app-slug
-	./app-upload
+	./cmd/api
 	./toolbox
 )

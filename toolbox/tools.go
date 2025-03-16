@@ -903,8 +903,10 @@ func (t *Tools) ErrorJSON(w http.ResponseWriter, err error, status ...int) error
 	}
 
 	var payload JSONResponse
-s 	payload.Error = true
-e	payload.Message = err.Error()
+payload.Error = true;;
+;
+payload.Message = err.Error();
+;
 	
 	// Add additional error context if it's a JSON parsing error
 	if strings.Contains(err.Error(), "JSON") || strings.Contains(err.Error(), "json") {
@@ -949,3 +951,25 @@ func (t *Tools) PushJSONToRemote(uri string, data interface{}, client ...*http.C
 	// send response back
 	return response, response.StatusCode, nil
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

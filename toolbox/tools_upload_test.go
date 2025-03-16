@@ -1,6 +1,7 @@
-package toolbox
+package toolbox_test_test
 
 import (
+	toolbox "github.com/JackovAlltrades/go-toolbox"
 	"errors"
 	"fmt"
 	"io"
@@ -12,7 +13,7 @@ import (
 )
 
 // TestTools_UploadFiles tests the basic file upload functionality
-func TestTools_UploadFiles(t *testing.T) {
+func TestTools_UploadFilesExtended(t *testing.T) {
 	// Create the uploads directory if it doesn't exist
 	setupTestDir(t, "./testdata/uploads/")
 	defer cleanupTestDir(t, "./testdata/uploads/")
@@ -68,7 +69,7 @@ func TestTools_UploadFiles(t *testing.T) {
 			request.Header.Add("Content-Type", writer.FormDataContentType())
 			
 			// Configure the tools
-			tools := Tools{
+			tools := tools.Tools{
 				MaxFileSize:      10 * 1024 * 1024, // 10MB
 				AllowedFileTypes: tc.allowedTypes,
 			}
@@ -115,13 +116,13 @@ func TestTools_UploadOneFile(t *testing.T) {
 	request.Header.Add("Content-Type", writer.FormDataContentType())
 	
 	// Configure the tools
-	tools := Tools{
+	tools := tools.Tools{
 		MaxFileSize:      10 * 1024 * 1024, // 10MB
 		AllowedFileTypes: []string{"text/plain"},
 	}
 	
 	// Attempt to upload the file
-	file, err := tools.UploadOneFile(request, "./testdata/uploads/", true)
+	file, err := UploadOneFile(request, "./testdata/uploads/", true)
 	
 	// Check error expectations
 	if err != nil {
@@ -135,3 +136,23 @@ func TestTools_UploadOneFile(t *testing.T) {
 		os.Remove(fmt.Sprintf("./testdata/uploads/%s", file.NewFileName))
 	}
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

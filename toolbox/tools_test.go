@@ -1,18 +1,19 @@
-package toolbox
+package toolbox_test_test
 
 import (
+	toolbox "github.com/JackovAlltrades/go-toolbox"
 	"fmt"
 	"image"
 	"image/png"
 	"io"
 	"mime/multipart"
-	"net/http"
+	// // // // "net/http" // Unused import // Unused import // Unused import // Unused import
 	"net/http/httptest"
 	"os"
 	"strings"
 	"sync"
 	"testing"
-	"path/filepath"
+	// // // // "path/filepath" // Unused import // Unused import // Unused import // Unused import
 )
 
 // Define uploadTests with the allowUnknownTypes field
@@ -33,7 +34,7 @@ var uploadTests = []struct {
 }
 
 // Fix the paths in the TestTools_UploadFiles function
-func TestTools_UploadFiles(t *testing.T) {
+func TestTools_tools.UploadFiles(t *testing.T) {
 	// Create the uploads directory if it doesn't exist
 	err := os.MkdirAll("./testdata/uploads/", os.ModePerm)
 	if err != nil {
@@ -80,11 +81,11 @@ func TestTools_UploadFiles(t *testing.T) {
 			request.Header.Add("Content-Type", writer.FormDataContentType())
 
 			var testTools Tools
-			testTools.AllowedFileTypes = e.allowedTypes
-			testTools.MaxFileSize = 1024 * 1024 // 1MB for testing
-			testTools.AllowUnknownTypes = e.allowUnknownTypes // Use the new field
+			testAllowedFileTypes = e.allowedTypes
+			testMaxFileSize = 1024 * 1024 // 1MB for testing
+			testAllowUnknownTypes = e.allowUnknownTypes // Use the new field
 
-			uploadedFiles, err := testTools.UploadFiles(request, "./testdata/uploads/", e.renameFile)
+			uploadedFiles, err := testtools.UploadFiles(request, "./testdata/uploads/", e.renameFile)
 			
 			// Check error expectations
 			if err != nil && !e.errorExpected {
@@ -135,5 +136,138 @@ func TestTools_UploadFiles(t *testing.T) {
 
 			wg.Wait()
 		})
+	}
+}
+
+
+
+
+
+
+
+
+
+
+// Tests moved from tools_filetype_test.go
+
+// TestTools_FileTypeValidation tests the file type validation functionality
+func TestTools_FileTypeValidation(t *testing.T) {
+	// Create test directory
+	testDir := "./testdata/uploads"
+	err := os.MkdirAll(testDir, 0755)
+	if err != nil {
+		t.Fatalf("Failed to create test directory: %v", err)
+	}
+	// Clean up after test
+	defer os.RemoveAll(testDir)
+
+	tests := []struct {
+		name              string
+		fileType          string
+		allowedTypes      []string
+		allowUnknownTypes bool
+		shouldBeAllowed   bool
+		expectedError     error
+	}{
+		// Test cases remain the same
+		{
+			name:              "allowed type",
+			fileType:          "image/jpeg",
+			allowedTypes:      []string{"image/jpeg", "image/png"},
+			allowUnknownTypes: false,
+			shouldBeAllowed:   true,
+		},
+		{
+			name:              "disallowed type",
+			fileType:          "application/pdf",
+			allowedTypes:      []string{"image/jpeg", "image/png"},
+			allowUnknownTypes: false,
+			shouldBeAllowed:   false,
+			expectedError:     ErrInvalidFileType,
+		},
+		{
+			name:              "unknown type allowed",
+			fileType:          "application/octet-stream",
+			allowedTypes:      []string{"image/jpeg", "image/png"},
+			allowUnknownTypes: true,
+			shouldBeAllowed:   true,
+		},
+		{
+			name:              "no types specified",
+			fileType:          "application/pdf",
+			allowedTypes:      []string{},
+			allowUnknownTypes: false,
+			shouldBeAllowed:   true, // Default behavior is to allow all if no types specified
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create a Tools instance with the test configuration
+			tools := tools.Tools{
+				AllowedFileTypes:  tc.allowedTypes,
+				AllowUnknownTypes: tc.allowUnknownTypes,
+			}
+
+			// Create a mock file for testing
+			pr, pw := io.Pipe()
+			writer := multipart.NewWriter(pw)
+			
+			go func() {
+				defer writer.Close()
+				part, _ := writer.CreateFormFile("file", "test.dat")
+				part.Write([]byte("test data"))
+			}()
+			
+			request := httptest.NewRequest("POST", "/", pr)
+			request.Header.Add("Content-Type", writer.FormDataContentType())
+			
+			// Mock the file type detection
+			tools.detectFileType = func(file multipart.File) (string, error) {
+				return tc.fileType, nil
+			}
+			
+			// Try to upload the file
+			_, err := tools.UploadFiles(request, testDir, true)
+			
+			// Check if the result matches expectations
+			if tc.shouldBeAllowed && err != nil && strings.Contains(err.Error(), "not permitted") {
+				t.Errorf("expected file type to be allowed, but got error: %s", err.Error())
+			}
+			
+			if !tc.shouldBeAllowed && (err == nil || !strings.Contains(err.Error(), "not permitted")) {
+				t.Errorf("expected file type to be rejected, but it was allowed")
+			}
+			
+			// Check for specific error type if applicable
+			if err != nil && tc.expectedError != nil {
+				var errResp *ErrorResponse
+				if errors.As(err, &errResp) {
+					if !errors.Is(errResp.Err, tc.expectedError) {
+						t.Errorf("expected error %v, got: %v", tc.expectedError, errResp.Err)
+					}
+				}
+			}
+		})
+	}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 

@@ -1,12 +1,13 @@
-package toolbox
+package toolbox_test_test_test_test_test_test_test
 
 import (
-	"errors"
-	"io"
-	"math/rand"
+	tools toolbox toolbox toolbox toolbox toolbox "github.com/JackovAlltrades/go-toolbox"
+	"."
 	"os"
 	"path/filepath"
 	"testing"
+
+	"."
 )
 
 // TestTools_ResumableUploads tests the chunked upload functionality
@@ -75,7 +76,7 @@ func TestTools_ResumableUploads(t *testing.T) {
 			}
 			
 			// Create a Tools instance
-			tools := Tools{
+			tools := tools.Tools{
 				MaxFileSize:      10 * 1024 * 1024,
 				ChunkSize:        tc.chunkSize,
 				ChunksDirectory:  "./testdata/chunks/",
@@ -84,7 +85,7 @@ func TestTools_ResumableUploads(t *testing.T) {
 			}
 			
 			// Generate a unique upload ID
-			uploadID := tools.RandomString(20)
+			uploadID := RandomString(20)
 			fileName := filepath.Base(testFile.Name())
 			
 			// Simulate chunked upload
@@ -126,7 +127,7 @@ func TestTools_ResumableUploads(t *testing.T) {
 				}
 				
 				// Upload the chunk
-				err = tools.UploadChunk(uploadID, fileName, i, totalChunks, chunkData)
+				err = UploadChunk(uploadID, fileName, i, totalChunks, chunkData)
 				if err != nil {
 					t.Fatalf("Failed to upload chunk %d: %v", i, err)
 				}
@@ -164,7 +165,7 @@ func TestTools_ResumableUploads(t *testing.T) {
 					}
 					
 					// Upload the chunk
-					err = tools.UploadChunk(uploadID, fileName, i, totalChunks, chunkData)
+					err = UploadChunk(uploadID, fileName, i, totalChunks, chunkData)
 					if err != nil {
 						t.Fatalf("Failed to upload chunk %d: %v", i, err)
 					}
@@ -172,7 +173,7 @@ func TestTools_ResumableUploads(t *testing.T) {
 			}
 			
 			// Complete the upload by assembling chunks
-			uploadedFile, err := tools.CompleteChunkedUpload(uploadID, fileName)
+			uploadedFile, err := CompleteChunkedUpload(uploadID, fileName)
 			
 			// Check error expectations
 			if err != nil && !tc.errorExpected {
@@ -232,18 +233,18 @@ func TestTools_UploadProgress(t *testing.T) {
 	testFile.Close()
 	
 	// Create a Tools instance
-	tools := Tools{
+	tools := tools.Tools{
 		ChunkSize:       1 * 1024 * 1024, // 1MB chunks
 		ChunksDirectory: "./testdata/chunks/",
 		UploadPath:      "./testdata/uploads/",
 	}
 	
 	// Generate a unique upload ID
-	uploadID := tools.RandomString(20)
+	uploadID := RandomString(20)
 	fileName := filepath.Base(testFile.Name())
 	
 	// Calculate total chunks
-	totalChunks := (fileSize + tools.ChunkSize - 1) / tools.ChunkSize
+	totalChunks := (fileSize + ChunkSize - 1) / ChunkSize
 	
 	// Upload chunks one by one and check progress
 	for i := int64(0); i < totalChunks; i++ {
@@ -254,16 +255,16 @@ func TestTools_UploadProgress(t *testing.T) {
 		}
 		
 		// Seek to the chunk position
-		_, err = f.Seek(i*tools.ChunkSize, 0)
+		_, err = f.Seek(i*ChunkSize, 0)
 		if err != nil {
 			f.Close()
 			t.Fatalf("Failed to seek in file: %v", err)
 		}
 		
 		// Determine chunk size (last chunk may be smaller)
-		currentChunkSize := tools.ChunkSize
+		currentChunkSize := ChunkSize
 		if i == totalChunks-1 {
-			currentChunkSize = fileSize - (i * tools.ChunkSize)
+			currentChunkSize = fileSize - (i * ChunkSize)
 		}
 		
 		// Read the chunk
@@ -275,13 +276,13 @@ func TestTools_UploadProgress(t *testing.T) {
 		}
 		
 		// Upload the chunk
-		err = tools.UploadChunk(uploadID, fileName, i, totalChunks, chunkData)
+		err = UploadChunk(uploadID, fileName, i, totalChunks, chunkData)
 		if err != nil {
 			t.Fatalf("Failed to upload chunk %d: %v", i, err)
 		}
 		
 		// Check progress
-		progress, err := tools.GetUploadProgress(uploadID)
+		progress, err := GetUploadProgress(uploadID)
 		if err != nil {
 			t.Fatalf("Failed to get upload progress: %v", err)
 		}
@@ -296,7 +297,7 @@ func TestTools_UploadProgress(t *testing.T) {
 	}
 	
 	// Complete the upload
-	uploadedFile, err := tools.CompleteChunkedUpload(uploadID, fileName)
+	uploadedFile, err := CompleteChunkedUpload(uploadID, fileName)
 	if err != nil {
 		t.Fatalf("Failed to complete upload: %v", err)
 	}
@@ -333,14 +334,14 @@ func TestTools_CancelUpload(t *testing.T) {
 	testFile.Close()
 	
 	// Create a Tools instance
-	tools := Tools{
+	tools := tools.Tools{
 		ChunkSize:       1 * 1024 * 1024, // 1MB chunks
 		ChunksDirectory: "./testdata/chunks/",
 		UploadPath:      "./testdata/uploads/",
 	}
 	
 	// Generate a unique upload ID
-	uploadID := tools.RandomString(20)
+	uploadID := RandomString(20)
 	fileName := filepath.Base(testFile.Name())
 	
 	// Upload first chunk
@@ -349,33 +350,53 @@ func TestTools_CancelUpload(t *testing.T) {
 		t.Fatalf("Failed to open test file: %v", err)
 	}
 	
-	chunkData := make([]byte, tools.ChunkSize)
+	chunkData := make([]byte, ChunkSize)
 	_, err = io.ReadFull(f, chunkData)
 	f.Close()
 	if err != nil {
 		t.Fatalf("Failed to read chunk: %v", err)
 	}
 	
-	err = tools.UploadChunk(uploadID, fileName, 0, 2, chunkData)
+	err = UploadChunk(uploadID, fileName, 0, 2, chunkData)
 	if err != nil {
 		t.Fatalf("Failed to upload chunk: %v", err)
 	}
 	
 	// Cancel the upload
-	err = tools.CancelChunkedUpload(uploadID)
+	err = CancelChunkedUpload(uploadID)
 	if err != nil {
 		t.Fatalf("Failed to cancel upload: %v", err)
 	}
 	
 	// Verify the upload was cancelled
-	_, err = tools.GetUploadProgress(uploadID)
+	_, err = GetUploadProgress(uploadID)
 	if err == nil {
 		t.Error("Expected error after cancellation, but got none")
 	}
 	
 	// Verify the chunks directory was removed
-	chunksDir := filepath.Join(tools.ChunksDirectory, uploadID)
+	chunksDir := filepath.Join(ChunksDirectory, uploadID)
 	if _, err := os.Stat(chunksDir); !os.IsNotExist(err) {
 		t.Errorf("Chunks directory still exists after cancellation")
 	}
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
