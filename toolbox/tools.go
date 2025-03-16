@@ -2,11 +2,11 @@ package toolbox
 
 import (
 	"bytes"
-	"encoding/json" 
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"math/rand" // Changed from mathrand "math/rand"
+	"math/rand"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -792,7 +792,7 @@ func (t *Tools) ReadJSON(w http.ResponseWriter, r *http.Request, data interface{
 		case errors.As(err, &syntaxError):
 			// Get the problematic part of the JSON
 			problemJSON := extractProblemJSON(r, syntaxError.Offset)
-			return fmt.Errorf("syntax error in JSON at position %d: %s", 
+			return fmt.Errorf("syntax error in JSON at position %d: %s",
 				syntaxError.Offset, problemJSON)
 
 		case errors.Is(err, io.ErrUnexpectedEOF):
@@ -800,7 +800,7 @@ func (t *Tools) ReadJSON(w http.ResponseWriter, r *http.Request, data interface{
 
 		case errors.As(err, &unmarshalTypeError):
 			if unmarshalTypeError.Field != "" {
-				return fmt.Errorf("incorrect data type for field '%s' - expected %s but got %s", 
+				return fmt.Errorf("incorrect data type for field '%s' - expected %s but got %s",
 					unmarshalTypeError.Field, unmarshalTypeError.Type, unmarshalTypeError.Value)
 			}
 			return fmt.Errorf("incorrect data type at position %d", unmarshalTypeError.Offset)
@@ -839,36 +839,36 @@ func extractProblemJSON(r *http.Request, offset int64) string {
 	if err != nil {
 		return "could not read request body"
 	}
-	
+
 	// Restore the request body
 	r.Body = io.NopCloser(bytes.NewReader(bodyCopy.Bytes()))
-	
+
 	// Extract the problematic part
 	jsonStr := bodyCopy.String()
-	
+
 	// Determine the context window (10 chars before and after the error)
 	start := int(offset) - 10
 	if start < 0 {
 		start = 0
 	}
-	
+
 	end := int(offset) + 10
 	if end > len(jsonStr) {
 		end = len(jsonStr)
 	}
-	
+
 	// Extract the context
 	context := jsonStr[start:end]
-	
+
 	// Mark the error position
 	position := int(offset) - start
 	if position >= 0 && position < len(context) {
-		return fmt.Sprintf("%s >>> %c <<< %s", 
-			context[:position], 
-			context[position], 
+		return fmt.Sprintf("%s >>> %c <<< %s",
+			context[:position],
+			context[position],
 			context[position+1:])
 	}
-	
+
 	return context
 }
 
@@ -906,12 +906,12 @@ func (t *Tools) ErrorJSON(w http.ResponseWriter, err error, status ...int) error
 	var payload JSONResponse
 	payload.Error = true
 	payload.Message = err.Error()
-	
+
 	// Add additional error context if it's a JSON parsing error
 	if strings.Contains(err.Error(), "JSON") || strings.Contains(err.Error(), "json") {
 		payload.Data = map[string]string{
 			"error_type": "json_parsing_error",
-			"help": "Check your JSON syntax, especially quotes, commas, and brackets",
+			"help":       "Check your JSON syntax, especially quotes, commas, and brackets",
 		}
 	}
 
@@ -950,25 +950,3 @@ func (t *Tools) PushJSONToRemote(uri string, data interface{}, client ...*http.C
 	// send response back
 	return response, response.StatusCode, nil
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
