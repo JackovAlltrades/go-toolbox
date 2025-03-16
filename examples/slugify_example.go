@@ -2,7 +2,7 @@ package main
 
 import (
     "fmt"
-    "github.com/JackovAlltrades/go-toolbox/toolbox"
+    "github\.com/JackovAlltrades/go-toolbox"
 )
 
 func main() {
@@ -26,3 +26,4 @@ func main() {
         fmt.Printf("Original: '%s' -> Slug: '%s'\n", example, slug)
     }
 }
+

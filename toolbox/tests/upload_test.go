@@ -2,7 +2,7 @@
 package toolbox_test
 
 import (
-    "github.com/JackovAlltrades/go-toolbox/toolbox"
+    "github\.com/JackovAlltrades/go-toolbox"
 	"bytes"
 	"fmt"
 	"mime/multipart"
@@ -349,3 +349,4 @@ func TestFileSizeLimits(t *testing.T) {
         })
     }
 }
+

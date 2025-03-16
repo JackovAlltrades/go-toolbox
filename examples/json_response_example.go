@@ -3,7 +3,7 @@ package main
 import (
     "fmt"
     "net/http"
-    "github.com/JackovAlltrades/go-toolbox/toolbox"
+    "github\.com/JackovAlltrades/go-toolbox"
 )
 
 type Person struct {
@@ -32,3 +32,4 @@ func jsonHandler(w http.ResponseWriter, r *http.Request) {
         http.Error(w, "Error writing JSON", http.StatusInternalServerError)
     }
 }
+

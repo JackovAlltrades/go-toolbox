@@ -2,11 +2,11 @@ package toolbox
 
 import (
 	"bytes"
-	"encoding/json" // Add this import for JSON operations
+	"encoding/json" 
 	"errors"
 	"fmt"
 	"io"
-	mathrand "math/rand" // Keep this import for mathrand.Intn
+	"math/rand" // Changed from mathrand "math/rand"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -94,7 +94,7 @@ func (t *Tools) RandomString(n int) string {
 	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	b := make([]byte, n)
 	for i := range b {
-		b[i] = letters[mathrand.Intn(len(letters))]
+		b[i] = letters[rand.Intn(len(letters))] // Changed from mathrand.Intn to rand.Intn
 	}
 	return string(b)
 }
@@ -895,6 +895,7 @@ func (t *Tools) WriteJSON(w http.ResponseWriter, status int, data interface{}, h
 }
 
 // ErrorJSON takes an error, & optionally a status code, and generates and sends a JSON error message
+// ErrorJSON takes an error, & optionally a status code, and generates and sends a JSON error message
 func (t *Tools) ErrorJSON(w http.ResponseWriter, err error, status ...int) error {
 	statusCode := http.StatusBadRequest
 
@@ -903,10 +904,8 @@ func (t *Tools) ErrorJSON(w http.ResponseWriter, err error, status ...int) error
 	}
 
 	var payload JSONResponse
-payload.Error = true;;
-;
-payload.Message = err.Error();
-;
+	payload.Error = true
+	payload.Message = err.Error()
 	
 	// Add additional error context if it's a JSON parsing error
 	if strings.Contains(err.Error(), "JSON") || strings.Contains(err.Error(), "json") {

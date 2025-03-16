@@ -3,7 +3,7 @@ package main
 import (
     "fmt"
     "net/http"
-    "github.com/JackovAlltrades/go-toolbox/toolbox"
+    "github\.com/JackovAlltrades/go-toolbox"
 )
 
 func main() {
@@ -27,3 +27,4 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
     
     fmt.Fprintf(w, "Uploaded %d files successfully", len(files))
 }
+

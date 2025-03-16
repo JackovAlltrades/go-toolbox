@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/JackovAlltrades/go-toolbox/toolbox"
+	"github\.com/JackovAlltrades/go-toolbox"
 )
 
 func main() {
@@ -67,3 +67,4 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Fprintf(w, "</ul>")
 }
+
