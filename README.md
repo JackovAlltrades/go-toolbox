@@ -1,13 +1,26 @@
 # Go Toolbox
 
-A collection of useful Go utilities for web development.
+A collection of utility tools for Go web applications.
 
 ## Features
 
-- File upload handling
-- Random string generation
-- More utilities coming soon...
-- Create a directory, including all parent directories if they don't exist
+- File upload handling with validation
+- Static file downloads
+- Chunked file uploads for large files
+- Concurrent upload support
+- File type verification
+
+## Usage
+
+### File Downloads
+
+```go
+// Example of downloading a static file
+func downloadHandler(w http.ResponseWriter, r *http.Request) {
+    tools := &toolbox.Tools{}
+    tools.DownloadStaticFile(w, r, "./files", "document.pdf", "my-document.pdf")
+}
+```
 
 ## Installation
 
